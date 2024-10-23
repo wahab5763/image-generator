@@ -1,46 +1,46 @@
 import streamlit as st
 from diffusers import StableDiffusionPipeline
 import torch
-import os
 
-# Load the Stable Diffusion model
-model_id = "dreamlike-art/dreamlike-anime-1.0"
-pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
-pipe = pipe.to("cuda" if torch.cuda.is_available() else "cpu")
+# Initialize the model pipeline only once to avoid reloading issues
+@st.cache_resource
+def load_pipeline():
+    model_id = "dreamlike-art/dreamlike-anime-1.0"
+    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
+    return pipe.to("cuda" if torch.cuda.is_available() else "cpu")
 
+pipe = load_pipeline()
+
+# Streamlit UI elements
 st.title("Anime Image Generator")
 
-# User input for the prompt
+# User inputs
 prompt = st.text_input("Enter your prompt:", value="anime, masterpiece, high quality")
-
-# Optional: Negative prompt to avoid specific elements
 negative_prompt = st.text_area(
-    "Negative Prompt (optional):", 
+    "Negative Prompt (optional):",
     value="simple background, duplicate, retro style, low quality"
 )
 
-# Button to generate the image
+# Generate button
 if st.button("Generate Image"):
-    with st.spinner("Generating..."):
+    with st.spinner("Generating the image... Please wait."):
         try:
-            # Generate the image using the prompt
+            # Run inference with timeout handling
             image = pipe(prompt, negative_prompt=negative_prompt).images[0]
 
-            # Display the generated image
+            # Display and save the generated image
             st.image(image, caption="Generated Image", use_column_width=True)
 
-            # Save the image temporarily
-            save_path = "./generated_image.jpg"
+            # Save and provide download link
+            save_path = "generated_image.jpg"
             image.save(save_path)
 
-            # Provide download option
             with open(save_path, "rb") as file:
-                btn = st.download_button(
+                st.download_button(
                     label="Download Image",
                     data=file,
                     file_name="anime_image.jpg",
                     mime="image/jpeg"
                 )
-
         except Exception as e:
             st.error(f"An error occurred: {e}")
